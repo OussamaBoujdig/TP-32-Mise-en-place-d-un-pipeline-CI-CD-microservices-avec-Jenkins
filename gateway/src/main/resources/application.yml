@@ -1,0 +1,25 @@
+server:
+  port: 8888
+
+spring:
+  application:
+    name: GATEWAY
+  cloud:
+    discovery:
+      enabled: true
+    consul:
+      host: consul
+      port: 8500
+      discovery:
+        enabled: true
+        register: true
+    eureka:
+      client:
+        service-url:
+          defaultZone: http://eureka-server:8761/eureka/
+        register-with-eureka: true
+        fetch-registry: true
+
+eureka:
+  instance:
+    hostname: gateway-service

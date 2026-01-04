@@ -1,0 +1,20 @@
+server:
+  port: 8761
+
+eureka:
+  instance:
+    hostname: eureka-server  # Use the container name for Docker networking
+  client:
+    register-with-eureka: false  # Ensure the server does not register itself
+    fetch-registry: false        # Ensure the server does not fetch its own registry
+  server:
+    wait-time-in-ms-when-sync-empty: 0  # Avoid startup delay when registry is empty
+
+spring:
+  application:
+    name: eureka-server  # Set the application name for clarity
+
+logging:
+  level:
+    com.netflix.eureka: INFO       # Use INFO for better visibility during development
+    com.netflix.discovery: INFO    # Use INFO for better visibility during development

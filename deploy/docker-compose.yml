@@ -1,0 +1,123 @@
+version: '3.8'
+
+services:
+  mysql:
+    image: mysql:latest
+    container_name: mysql-container1
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE_PROPRIETAIRE}
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    networks:
+      - microservices-network
+    healthcheck:
+      test: [ "CMD", "mysqladmin", "ping", "-h", "localhost" ]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  consul:
+    image: consul:1.15.4
+    container_name: consul-container
+    ports:
+      - "${CONSUL_PORT:-8500}:8500"
+    networks:
+      - microservices-network
+
+  eureka-server:
+    build:
+      context: ../server_eureka
+    container_name: eureka-server
+    ports:
+      - "${EUREKA_PORT:-8761}:8761"
+    networks:
+      - microservices-network
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      EUREKA_INSTANCE_HOSTNAME: eureka-server
+      EUREKA_CLIENT_REGISTER_WITH_EUREKA: 'false'
+      EUREKA_CLIENT_FETCH_REGISTRY: 'false'
+
+  gateway-service:
+    build:
+      context: ../gateway
+    ports:
+      - "${GATEWAY_PORT:-8888}:8888"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      eureka-server:
+        condition: service_started
+    networks:
+      - microservices-network
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_CLOUD_CONSUL_HOST: ${CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${CONSUL_PORT:-8500}
+
+  proprietaire-service:
+    build:
+      context: ../client
+    ports:
+      - "${PROPRIETAIRE_PORT:-8088}:8088"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      gateway-service:
+        condition: service_started
+      eureka-server:
+        condition: service_started
+    networks:
+      - microservices-network
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_CLOUD_CONSUL_HOST: ${CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${CONSUL_PORT:-8500}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_PROPRIETAIRE}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+  moto-service:
+    build:
+      context: ../car
+    ports:
+      - "${MOTO_PORT:-8089}:8089"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      consul:
+        condition: service_started
+      gateway-service:
+        condition: service_started
+      eureka-server:
+        condition: service_started
+    networks:
+      - microservices-network
+    environment:
+      EUREKA_CLIENT_SERVICE_URL_DEFAULTZONE: http://eureka-server:8761/eureka/
+      SPRING_CLOUD_CONSUL_HOST: ${CONSUL_HOST:-consul}
+      SPRING_CLOUD_CONSUL_PORT: ${CONSUL_PORT:-8500}
+      SPRING_DATASOURCE_URL: ${SPRING_DATASOURCE_URL_MOTO}
+      SPRING_DATASOURCE_USERNAME: ${SPRING_DATASOURCE_USERNAME}
+      SPRING_DATASOURCE_PASSWORD: ${SPRING_DATASOURCE_PASSWORD}
+
+  phpmyadmin:
+    image: phpmyadmin/phpmyadmin
+    container_name: phpmyadmin-container
+    environment:
+      PMA_HOST: mysql
+      PMA_PORT: 3306
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+    ports:
+      - "${PHPMYADMIN_PORT:-8081}:80"
+    networks:
+      - microservices-network
+
+networks:
+  microservices-network:
+    driver: bridge
